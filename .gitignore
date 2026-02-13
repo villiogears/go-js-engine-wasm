@@ -11,3 +11,5 @@ sample-lib.js
 node_modules/
 .vscode/
 go.sum
+lodash-app
+my-browser-app/
