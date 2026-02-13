@@ -17,7 +17,7 @@ Usage:
   ./elphadeal.js [command|file] [options]
 
 Commands:
-  create <name>      Create a new project folder with boilerplate
+  create <pkg> <name> Create a new project from a specific template package
   init               Initialize a new package.json in current folder
   install <package>  Install a package from npm (alias: add)
   uninstall <pkg>    Remove a package from node_modules (alias: remove)
@@ -110,9 +110,13 @@ Built with Goja (Go) and Node.js WASI.
     }
 
     if (process.argv[2] === 'create') {
-        const projectName = process.argv[3];
-        if (!projectName) {
-            console.log("Usage: ./elphadeal.js create <project-name>");
+        const templateOrName = process.argv[3];
+        const projectName = process.argv[4] || templateOrName;
+        const isTemplated = process.argv[4] !== undefined;
+
+        if (!templateOrName) {
+            console.log("Usage: ./elphadeal.js create [template] <project-name>");
+            console.log("Example: ./elphadeal.js create lodash my-lodash-app");
             return;
         }
 
@@ -121,52 +125,62 @@ Built with Goja (Go) and Node.js WASI.
             return;
         }
 
-        console.log(`[ELPHADEAL] Scaffolding new browser app in ./${projectName}...`);
+        console.log(`[ELPHADEAL] Creating new project "${projectName}"...`);
 
         try {
             fs.mkdirSync(projectName);
             const projectPath = (file) => path.join(projectName, file);
+            const { execSync } = require('child_process');
 
             // 1. package.json
-            fs.writeFileSync(projectPath('package.json'), JSON.stringify({
+            const pkgData = {
                 name: projectName,
                 version: "0.1.0",
                 main: "index.js",
                 dependencies: {}
-            }, null, 2));
+            };
+            fs.writeFileSync(projectPath('package.json'), JSON.stringify(pkgData, null, 2));
 
-            // 2. index.js
-            fs.writeFileSync(projectPath('index.js'), `
-const App = require('./App');
-console.log('--- ELPHADEAL APP STARTING ---');
+            // 2. If template (package) specified, install it immediately
+            if (isTemplated) {
+                console.log(`[ELPHADEAL] Applying template/dependency: ${templateOrName}...`);
+                execSync(`npm install ${templateOrName}`, { cwd: projectName, stdio: 'inherit' });
+            }
+
+            // 3. Generate index.js with logic depending on template
+            let indexContent = "";
+            if (isTemplated) {
+                indexContent = `
+const pkg = require('${templateOrName}');
+console.log('--- ELPHADEAL TEMPLATE APP: ${templateOrName} ---');
+console.log('Loaded package:', typeof pkg === 'object' ? Object.keys(pkg) : typeof pkg);
 
 // UI Render
+const root = document.createElement('div');
+root.innerHTML = '<h1>Project: ${projectName}</h1><p>Template: ${templateOrName} is ready.</p>';
+document.body.appendChild(root);
+renderToConsole(document.body);
+`.trim();
+            } else {
+                indexContent = `
+const App = require('./App');
+console.log('--- ELPHADEAL BOILERPLATE STARTING ---');
 document.body.appendChild(App());
 renderToConsole(document.body);
+`.trim();
 
-// Graphic Engine Demo
-const canvas = createCanvas(80, 10);
-const ctx = canvas.getContext('2d');
-ctx.fillRect(0, 0, 80, 10, ' ', '44');
-ctx.fillText('WELCOME TO ' + '${projectName.toUpperCase()}', 5, 4, '37;1');
-canvas.flush();
-`.trim());
-
-            // 3. App.js
-            fs.writeFileSync(projectPath('App.js'), `
+                // Generate App.js only for default boilerplate
+                fs.writeFileSync(projectPath('App.js'), `
 function App() {
   const div = document.createElement('div');
-  div.id = 'root';
-  div.innerHTML = 'Hello from Elphadeal Component!';
-  
-  const span = document.createElement('span');
-  span.innerHTML = ' (Dynamic Rendering Active)';
-  div.appendChild(span);
-  
+  div.innerHTML = 'Hello from Elphadeal!';
   return div;
 }
 module.exports = App;
 `.trim());
+            }
+
+            fs.writeFileSync(projectPath('index.js'), indexContent);
 
             console.log(`\n[ELPHADEAL] Successfully created ${projectName}!`);
             console.log(`To run your app:\n  cd ${projectName}\n  ../elphadeal.js index.js`);
