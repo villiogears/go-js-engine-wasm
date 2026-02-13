@@ -17,7 +17,8 @@ Usage:
   ./elphadeal.js [command|file] [options]
 
 Commands:
-  init               Initialize a new package.json (alias: create)
+  create <name>      Create a new project folder with boilerplate
+  init               Initialize a new package.json in current folder
   install <package>  Install a package from npm (alias: add)
   uninstall <pkg>    Remove a package from node_modules (alias: remove)
   help               Show this help message
@@ -88,7 +89,7 @@ Built with Goja (Go) and Node.js WASI.
         return;
     }
 
-    if (process.argv[2] === 'init' || process.argv[2] === 'create') {
+    if (process.argv[2] === 'init') {
         if (fs.existsSync('package.json')) {
             console.log("package.json already exists.");
             return;
@@ -105,6 +106,74 @@ Built with Goja (Go) and Node.js WASI.
         };
         fs.writeFileSync('package.json', JSON.stringify(defaultPkg, null, 2));
         console.log("[ELPHADEAL] Initialized package.json");
+        return;
+    }
+
+    if (process.argv[2] === 'create') {
+        const projectName = process.argv[3];
+        if (!projectName) {
+            console.log("Usage: ./elphadeal.js create <project-name>");
+            return;
+        }
+
+        if (fs.existsSync(projectName)) {
+            console.error(`Error: Directory "${projectName}" already exists.`);
+            return;
+        }
+
+        console.log(`[ELPHADEAL] Scaffolding new browser app in ./${projectName}...`);
+
+        try {
+            fs.mkdirSync(projectName);
+            const projectPath = (file) => path.join(projectName, file);
+
+            // 1. package.json
+            fs.writeFileSync(projectPath('package.json'), JSON.stringify({
+                name: projectName,
+                version: "0.1.0",
+                main: "index.js",
+                dependencies: {}
+            }, null, 2));
+
+            // 2. index.js
+            fs.writeFileSync(projectPath('index.js'), `
+const App = require('./App');
+console.log('--- ELPHADEAL APP STARTING ---');
+
+// UI Render
+document.body.appendChild(App());
+renderToConsole(document.body);
+
+// Graphic Engine Demo
+const canvas = createCanvas(80, 10);
+const ctx = canvas.getContext('2d');
+ctx.fillRect(0, 0, 80, 10, ' ', '44');
+ctx.fillText('WELCOME TO ' + '${projectName.toUpperCase()}', 5, 4, '37;1');
+canvas.flush();
+`.trim());
+
+            // 3. App.js
+            fs.writeFileSync(projectPath('App.js'), `
+function App() {
+  const div = document.createElement('div');
+  div.id = 'root';
+  div.innerHTML = 'Hello from Elphadeal Component!';
+  
+  const span = document.createElement('span');
+  span.innerHTML = ' (Dynamic Rendering Active)';
+  div.appendChild(span);
+  
+  return div;
+}
+module.exports = App;
+`.trim());
+
+            console.log(`\n[ELPHADEAL] Successfully created ${projectName}!`);
+            console.log(`To run your app:\n  cd ${projectName}\n  ../elphadeal.js index.js`);
+
+        } catch (e) {
+            console.error("Failed to create project:", e.message);
+        }
         return;
     }
     
