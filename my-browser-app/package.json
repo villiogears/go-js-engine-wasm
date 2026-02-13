@@ -1,6 +1,6 @@
 {
   "name": "my-browser-app",
   "version": "0.1.0",
-  "main": "index.js",
+  "main": "elphadeal.js",
   "dependencies": {}
 }
