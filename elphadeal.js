@@ -17,7 +17,9 @@ Usage:
   ./elphadeal.js [command|file] [options]
 
 Commands:
-  install <package>  Install a package from npm into node_modules
+  init               Initialize a new package.json (alias: create)
+  install <package>  Install a package from npm (alias: add)
+  uninstall <pkg>    Remove a package from node_modules (alias: remove)
   help               Show this help message
 
 Options:
@@ -44,7 +46,7 @@ Built with Goja (Go) and Node.js WASI.
         return;
     }
 
-    if (process.argv[2] === 'install') {
+    if (process.argv[2] === 'install' || process.argv[2] === 'add' || process.argv[2] === 'i') {
         const pkg = process.argv[3];
         if (!pkg) {
             console.log("Usage: ./elphadeal.js install <package-name>");
@@ -53,15 +55,56 @@ Built with Goja (Go) and Node.js WASI.
         console.log(`[ELPHADEAL] Installing ${pkg} via npm-shim...`);
         const { execSync } = require('child_process');
         try {
-            // Ensure node_modules exists and package.json exists to avoid npm errors
+            // Ensure package.json exists to avoid npm errors
             if (!fs.existsSync('package.json')) {
-                fs.writeFileSync('package.json', JSON.stringify({ name: "elphadeal-app", version: "1.0.0" }, null, 2));
+                fs.writeFileSync('package.json', JSON.stringify({ 
+                    name: path.basename(process.cwd()), 
+                    version: "1.0.0",
+                    main: "index.js"
+                }, null, 2));
             }
             execSync(`npm install ${pkg}`, { stdio: 'inherit' });
             console.log(`\n[ELPHADEAL] Package ${pkg} is ready.`);
         } catch (e) {
             console.error("Installation failed.");
         }
+        return;
+    }
+
+    if (process.argv[2] === 'uninstall' || process.argv[2] === 'remove' || process.argv[2] === 'rm' || process.argv[2] === 'un') {
+        const pkg = process.argv[3];
+        if (!pkg) {
+            console.log("Usage: ./elphadeal.js uninstall <package-name>");
+            return;
+        }
+        console.log(`[ELPHADEAL] Removing ${pkg}...`);
+        const { execSync } = require('child_process');
+        try {
+            execSync(`npm uninstall ${pkg}`, { stdio: 'inherit' });
+            console.log(`\n[ELPHADEAL] Package ${pkg} removed.`);
+        } catch (e) {
+            console.error("Uninstallation failed.");
+        }
+        return;
+    }
+
+    if (process.argv[2] === 'init' || process.argv[2] === 'create') {
+        if (fs.existsSync('package.json')) {
+            console.log("package.json already exists.");
+            return;
+        }
+        const defaultPkg = {
+            name: path.basename(process.cwd()),
+            version: "1.0.0",
+            description: "An Elphadeal Project",
+            main: "index.js",
+            scripts: {
+                start: "elphadeal index.js"
+            },
+            dependencies: {}
+        };
+        fs.writeFileSync('package.json', JSON.stringify(defaultPkg, null, 2));
+        console.log("[ELPHADEAL] Initialized package.json");
         return;
     }
     
